@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum ApplicationStatus {
+  PENDING
+  REVIEWING
+  APPROVED
+  REJECTED
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum LanguageProficiency {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  NATIVE
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  ASSOCIATE
+  BACHELOR
+  MASTER
+  DOCTORATE
+  OTHER
+}
+
+// Main Application Model
+model Application {
+  id        String            @id @default(cuid())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  status    ApplicationStatus @default(PENDING)
+
+  // Personal Information
+  firstName       String
+  lastName        String
+  email           String
+  phone           String
+  dateOfBirth     DateTime
+  nationality     String
+  currentLocation String
+
+  // Professional Information
+  desiredCountry   String
+  desiredPosition  String
+  yearsExperience  Int
+  currentSalary    Decimal?  @db.Decimal(12, 2)
+  expectedSalary   Decimal   @db.Decimal(12, 2)
+  educationLevel   EducationLevel
+
+  // Documents (URLs from cloud storage)
+  resumeUrl       String
+  coverLetterUrl  String?
+  portfolioUrl    String?
+
+  // Additional Information
+  skills     String[]
+  notes      String?   @db.Text
+
+  // Relations
+  languages      Language[]
+  statusHistory  StatusHistory[]
+
+  // Admin fields
+  reviewedBy   String?
+  reviewNotes  String?   @db.Text
+  reviewer     AdminUser? @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  // Indexes for performance
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@index([desiredCountry])
+  @@map("applications")
+}
+
+// Language proficiency sub-model
+model Language {
+  id             String              @id @default(cuid())
+  language       String
+  proficiency    LanguageProficiency
+  applicationId  String
+  application    Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("languages")
+}
+
+// Status change history
+model StatusHistory {
+  id            String            @id @default(cuid())
+  status        ApplicationStatus
+  changedAt     DateTime          @default(now())
+  changedBy     String?
+  notes         String?           @db.Text
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  admin         AdminUser?        @relation(fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@map("status_history")
+}
+
+// Admin Users Model
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         AdminRole @default(ADMIN)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLogin    DateTime?
+  isActive     Boolean   @default(true)
+
+  // Relations
+  reviewedApplications Application[]
+  statusChanges        StatusHistory[]
+  auditLogs            AuditLog[]
+
+  @@index([email])
+  @@map("admin_users")
+}
+
+// Audit Log Model
+model AuditLog {
+  id         String   @id @default(cuid())
+  timestamp  DateTime @default(now())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+
+  // Relations
+  user AdminUser @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
