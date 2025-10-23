@@ -29,13 +29,14 @@ export type CreateApplicationInput = {
   desiredPosition: string;
   yearsExperience: number;
   currentSalary?: number;
-  expectedSalary: number;
+  expectedSalary?: number;
   educationLevel: string;
 
   // Documents
-  resumeUrl: string;
+  resumeUrl?: string;
   coverLetterUrl?: string;
   portfolioUrl?: string;
+  linkedInUrl?: string;
 
   // Additional
   skills: string[];

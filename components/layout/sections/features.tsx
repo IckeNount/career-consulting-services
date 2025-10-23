@@ -11,77 +11,76 @@ interface FeaturesProps {
 const featureList: FeaturesProps[] = [
   {
     icon: "TabletSmartphone",
-    title: "Mobile Friendly",
+    title: "End-to-End Support",
     description:
-      "Lorem ipsum dolor sit amet consectetur adipisicing elit. A odio velit cum aliquam, consectetur.",
+      "From job matching to visas, housing, and relocation, we take care of the full process.",
   },
   {
     icon: "BadgeCheck",
-    title: "Social Proof",
+    title: "We Speak Your Language",
     description:
-      "Lorem ipsum dolor sit amet consectetur. Natus consectetur, odio ea accusamus aperiam.",
+      "We know how hard it is to move abroad. Our team offers patient, clear communication.",
   },
   {
     icon: "Goal",
-    title: "Targeted Content",
+    title: "Trained & Prepared",
     description:
-      "Lorem ipsum dolor sit amet consectetur adipisicing elit. odio ea accusamus aperiam.",
+      "We offer free coaching for first-time teachers and workers abroad.",
   },
   {
     icon: "PictureInPicture",
-    title: "Strong Visuals",
+    title: "Paperwork? Handled.",
     description:
-      "Lorem elit. A odio velit cum aliquam. Natus consectetur dolores, odio ea accusamus aperiam.",
+      "From teaching licenses to work permits, we make sure nothing gets missed.",
   },
   {
     icon: "MousePointerClick",
-    title: "Clear CTA",
+    title: "Help When You Need It Most",
     description:
-      "Lorem ipsum dolor sit amet consectetur adipisicing. odio ea accusamus consectetur.",
+      "From airport pickups to emergency loans, we're here when others aren't.",
   },
   {
     icon: "Newspaper",
-    title: "Clear Headline",
+    title: "Trusted Since 2019",
     description:
-      "Lorem ipsum dolor sit amet consectetur adipisicing elit. A odio velit cum aliquam. Natus consectetur.",
+      "Hundreds of successful placements and growing. You’re in safe hands.",
   },
 ];
 
 export const FeaturesSection = () => {
   return (
-    <section id="features" className="container py-24 sm:py-32">
-      <h2 className="text-lg text-primary text-center mb-2 tracking-wider">
-        Features
+    <section id='features' className='container py-24 sm:py-32'>
+      <h2 className='text-lg text-primary text-center mb-2 tracking-wider'>
+        Why KTECCS?
       </h2>
 
-      <h2 className="text-3xl md:text-4xl text-center font-bold mb-4">
-        What Makes Us Different
+      <h2 className='text-3xl md:text-4xl text-center font-bold mb-4'>
+        What makes us different?
       </h2>
 
-      <h3 className="md:w-1/2 mx-auto text-xl text-center text-muted-foreground mb-8">
-        Lorem ipsum dolor, sit amet consectetur adipisicing elit. Voluptatem
-        fugiat, odit similique quasi sint reiciendis quidem iure veritatis optio
-        facere tenetur.
+      <h3 className='md:w-1/2 mx-auto text-xl text-center text-muted-foreground mb-8'>
+        We&apos;re more than a recruiter. We guide you through every step of
+        working or teaching abroad.
       </h3>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-4'>
         {featureList.map(({ icon, title, description }) => (
           <div key={title}>
-            <Card className="h-full bg-background border-0 shadow-none">
-              <CardHeader className="flex justify-center items-center">
-                <div className="bg-primary/20 p-2 rounded-full ring-8 ring-primary/10 mb-4">
+            <Card className='h-full bg-background border-0 shadow-none'>
+              <CardHeader className='flex justify-center items-center'>
+                <div className='bg-primary/20 p-2 rounded-full ring-8 ring-primary/10 mb-4'>
                   <Icon
                     name={icon as keyof typeof icons}
                     size={24}
-                    color="hsl(var(--primary))"
-                    className="text-primary"
+                    color='hsl(var(--primary))'
+                    className='text-primary'
                   />
                 </div>
 
                 <CardTitle>{title}</CardTitle>
               </CardHeader>
 
-              <CardContent className="text-muted-foreground text-center">
+              <CardContent className='text-muted-foreground text-center'>
                 {description}
               </CardContent>
             </Card>

@@ -36,12 +36,24 @@ export default function ApplyPage() {
     { language: "", proficiency: "INTERMEDIATE" },
   ]);
 
+  const [educationLevel, setEducationLevel] = useState<string>("");
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitStatus({ type: null, message: "" });
 
     const formData = new FormData(e.currentTarget);
+
+    // Validate education level
+    if (!educationLevel) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please select an education level.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
     // Parse skills (comma-separated)
     const skillsInput = formData.get("skills") as string;
@@ -66,13 +78,15 @@ export default function ApplyPage() {
       desiredCountry: formData.get("desiredCountry"),
       desiredPosition: formData.get("desiredPosition"),
       yearsExperience: parseInt(formData.get("yearsExperience") as string) || 0,
-      currentSalary: formData.get("currentSalary")
-        ? parseFloat(formData.get("currentSalary") as string)
-        : undefined,
-      expectedSalary: formData.get("expectedSalary")
-        ? parseFloat(formData.get("expectedSalary") as string)
-        : undefined,
-      educationLevel: formData.get("educationLevel"),
+      currentSalary:
+        formData.get("currentSalary") && formData.get("currentSalary") !== ""
+          ? parseFloat(formData.get("currentSalary") as string)
+          : undefined,
+      expectedSalary:
+        formData.get("expectedSalary") && formData.get("expectedSalary") !== ""
+          ? parseFloat(formData.get("expectedSalary") as string)
+          : undefined,
+      educationLevel,
       resumeUrl: formData.get("resumeUrl") || undefined,
       coverLetterUrl: formData.get("coverLetterUrl") || undefined,
       portfolioUrl: formData.get("portfolioUrl") || undefined,
@@ -102,6 +116,7 @@ export default function ApplyPage() {
         // Reset form
         (e.target as HTMLFormElement).reset();
         setLanguages([{ language: "", proficiency: "INTERMEDIATE" }]);
+        setEducationLevel("");
       } else {
         setSubmitStatus({
           type: "error",
@@ -269,7 +284,11 @@ export default function ApplyPage() {
                 </div>
                 <div className='space-y-2'>
                   <Label htmlFor='educationLevel'>Education Level *</Label>
-                  <Select name='educationLevel' required>
+                  <Select
+                    value={educationLevel}
+                    onValueChange={setEducationLevel}
+                    required
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder='Select education level' />
                     </SelectTrigger>

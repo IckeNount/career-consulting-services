@@ -13,19 +13,60 @@ import type { CreateApplicationInput, UpdateApplicationInput } from "@/types";
 
 // Create a new application
 export async function createApplication(data: CreateApplicationInput) {
-  const { languages, ...applicationData } = data;
+  const {
+    languages,
+    currentSalary,
+    expectedSalary,
+    resumeUrl,
+    coverLetterUrl,
+    portfolioUrl,
+    linkedInUrl,
+    notes,
+    ...applicationData
+  } = data;
+
+  // Build base data object with required fields only
+  const cleanedData: any = {
+    firstName: applicationData.firstName,
+    lastName: applicationData.lastName,
+    email: applicationData.email,
+    phone: applicationData.phone,
+    dateOfBirth: new Date(applicationData.dateOfBirth),
+    nationality: applicationData.nationality,
+    currentLocation: applicationData.currentLocation,
+    desiredCountry: applicationData.desiredCountry,
+    desiredPosition: applicationData.desiredPosition,
+    yearsExperience: applicationData.yearsExperience,
+    educationLevel: applicationData.educationLevel as EducationLevel,
+    skills: applicationData.skills,
+  };
+
+  // Add optional fields only if they have valid values
+  if (expectedSalary !== undefined && expectedSalary !== null) {
+    cleanedData.expectedSalary = new Prisma.Decimal(expectedSalary.toString());
+  }
+  if (currentSalary !== undefined && currentSalary !== null) {
+    cleanedData.currentSalary = new Prisma.Decimal(currentSalary.toString());
+  }
+  if (resumeUrl) {
+    cleanedData.resumeUrl = resumeUrl;
+  }
+  if (coverLetterUrl) {
+    cleanedData.coverLetterUrl = coverLetterUrl;
+  }
+  if (portfolioUrl) {
+    cleanedData.portfolioUrl = portfolioUrl;
+  }
+  if (linkedInUrl) {
+    cleanedData.linkedInUrl = linkedInUrl;
+  }
+  if (notes) {
+    cleanedData.notes = notes;
+  }
 
   return await prisma.application.create({
     data: {
-      ...applicationData,
-      dateOfBirth: new Date(applicationData.dateOfBirth),
-      educationLevel: applicationData.educationLevel as EducationLevel,
-      currentSalary: applicationData.currentSalary
-        ? new Prisma.Decimal(applicationData.currentSalary.toString())
-        : null,
-      expectedSalary: new Prisma.Decimal(
-        applicationData.expectedSalary.toString()
-      ),
+      ...cleanedData,
       languages: {
         create: languages.map((lang) => ({
           language: lang.language,
@@ -36,7 +77,7 @@ export async function createApplication(data: CreateApplicationInput) {
       statusHistory: {
         create: {
           status: ApplicationStatus.PENDING,
-          changedBy: "SYSTEM",
+          changedBy: null,
           notes: "Application submitted via public form",
         },
       },

@@ -98,8 +98,8 @@ export default function AdminDashboard() {
               <CardDescription>Manage job applications</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className='w-full' variant='outline'>
-                View Applications
+              <Button className='w-full' variant='outline' asChild>
+                <a href='/admin/applications'>View Applications</a>
               </Button>
             </CardContent>
           </Card>

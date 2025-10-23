@@ -18,7 +18,7 @@ export const educationLevelEnum = z.enum([
   "ASSOCIATE",
   "BACHELOR",
   "MASTER",
-  "DOCTORATE",
+  "PHD",
   "OTHER",
 ]);
 
@@ -66,16 +66,33 @@ export const createApplicationSchema = z.object({
     .number()
     .positive("Current salary must be positive")
     .optional(),
-  expectedSalary: z.number().positive("Expected salary must be positive"),
+  expectedSalary: z
+    .number()
+    .positive("Expected salary must be positive")
+    .optional(),
   educationLevel: educationLevelEnum,
 
   // Documents
-  resumeUrl: z.string().url("Resume URL must be a valid URL"),
+  resumeUrl: z
+    .string()
+    .url("Resume URL must be a valid URL")
+    .optional()
+    .nullable(),
   coverLetterUrl: z
     .string()
     .url("Cover letter URL must be a valid URL")
-    .optional(),
-  portfolioUrl: z.string().url("Portfolio URL must be a valid URL").optional(),
+    .optional()
+    .nullable(),
+  portfolioUrl: z
+    .string()
+    .url("Portfolio URL must be a valid URL")
+    .optional()
+    .nullable(),
+  linkedInUrl: z
+    .string()
+    .url("LinkedIn URL must be a valid URL")
+    .optional()
+    .nullable(),
 
   // Additional Information
   skills: z

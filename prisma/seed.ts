@@ -50,7 +50,6 @@ async function main() {
         statusHistory: {
           create: {
             status: "PENDING",
-            changedBy: "SYSTEM",
             notes: "Application submitted",
           },
         },

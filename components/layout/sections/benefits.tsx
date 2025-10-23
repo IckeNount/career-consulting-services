@@ -41,7 +41,7 @@ export const BenefitsSection = () => {
       <div className='grid lg:grid-cols-2 place-items-center lg:gap-24'>
         <div>
           <h2 className='text-lg text-primary mb-2 tracking-wider'>
-            Our Services
+            What We Offer
           </h2>
 
           <h2 className='text-3xl md:text-4xl font-bold mb-4'>
