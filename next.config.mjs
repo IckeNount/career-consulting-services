@@ -19,6 +19,8 @@ const nextConfig = {
         hostname: "avatars.githubusercontent.com",
       },
     ],
+    // Allow local images from uploads directory
+    domains: ["localhost"],
   },
 };
 

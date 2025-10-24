@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+// Ensure this page is treated as dynamic to avoid prerendering issues
+export const dynamic = "force-dynamic";
+
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,13 +20,24 @@ import { Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin/dashboard";
+  const [callbackUrl, setCallbackUrl] = useState("/admin/dashboard");
+
+  // Read callbackUrl from the browser URL (client-side) to avoid using
+  // next/navigation's useSearchParams in a prerender context.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cb = params.get("callbackUrl");
+      if (cb) setCallbackUrl(cb);
+    } catch (err) {
+      // ignore
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

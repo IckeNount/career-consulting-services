@@ -28,15 +28,15 @@ export type CreateApplicationInput = {
   desiredCountry: string;
   desiredPosition: string;
   yearsExperience: number;
-  currentSalary?: number;
-  expectedSalary?: number;
+  currentSalary?: number | null;
+  expectedSalary?: number | null;
   educationLevel: string;
 
   // Documents
-  resumeUrl?: string;
-  coverLetterUrl?: string;
-  portfolioUrl?: string;
-  linkedInUrl?: string;
+  resumeUrl?: string | null;
+  coverLetterUrl?: string | null;
+  portfolioUrl?: string | null;
+  linkedInUrl?: string | null;
 
   // Additional
   skills: string[];
@@ -44,7 +44,7 @@ export type CreateApplicationInput = {
     language: string;
     proficiency: string;
   }[];
-  notes?: string;
+  notes?: string | null;
 };
 
 // Update application input type

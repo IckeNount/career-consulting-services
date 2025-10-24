@@ -36,7 +36,23 @@ enum EducationLevel {
   BACHELOR
   MASTER
   PHD
+  DOCTORATE
   OTHER
+}
+
+enum BlogCategory {
+  TEACHING
+  VISAS
+  RELOCATION
+  CAREER_TIPS
+  INTERVIEWS
+  CULTURE
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 // Main Application Model
@@ -132,6 +148,7 @@ model AdminUser {
   reviewedApplications Application[]
   statusChanges        StatusHistory[]
   auditLogs            AuditLog[]
+  blogPosts            BlogPost[]
 
   @@index([email])
   @@map("admin_users")
@@ -156,4 +173,63 @@ model AuditLog {
   @@index([timestamp])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// Blog Post Model
+model BlogPost {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  excerpt     String      @db.Text
+  content     String      @db.Text
+  coverImage  String
+  category    BlogCategory
+  status      BlogStatus  @default(DRAFT)
+  
+  // Metadata
+  author      String      @default("KTECCS Team")
+  readTime    String      @default("5 min read")
+  views       Int         @default(0)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  // Timestamps
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  authorId    String?
+  authorAdmin AdminUser?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  media       BlogMedia[]
+
+  // Indexes
+  @@index([slug])
+  @@index([status])
+  @@index([category])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@map("blog_posts")
+}
+
+// Blog Media Model (for photos and videos)
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model BlogMedia {
+  id        String    @id @default(cuid())
+  url       String
+  type      MediaType
+  caption   String?
+  order     Int       @default(0)
+  postId    String
+  post      BlogPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@index([postId])
+  @@map("blog_media")
 }
