@@ -11,6 +11,31 @@ import type { CreateApplicationInput, UpdateApplicationInput } from "@/types";
 const db = prisma as any;
 
 /**
+ * Testimonial Queries
+ */
+
+// Get all published testimonials
+export async function getPublishedTestimonials(limit: number = 20) {
+  return prisma.testimonial.findMany({
+    where: {
+      status: "PUBLISHED",
+    },
+    orderBy: [
+      { order: "asc" },
+      { createdAt: "desc" },
+    ],
+    take: limit,
+  });
+}
+
+// Get testimonial by ID
+export async function getTestimonialById(id: string) {
+  return prisma.testimonial.findUnique({
+    where: { id },
+  });
+}
+
+/**
  * Application Queries
  */
 

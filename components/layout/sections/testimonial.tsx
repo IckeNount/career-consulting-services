@@ -1,9 +1,7 @@
 "use client";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -14,120 +12,126 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Star } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import Autoplay from "embla-carousel-autoplay";
 
-interface ReviewProps {
-  image: string;
+interface Testimonial {
+  id: string;
   name: string;
-  userName: string;
+  title: string;
   comment: string;
-  rating: number;
+  mediaUrl: string | null;
+  mediaType: "PHOTO" | "VIDEO" | null;
 }
 
-const reviewList: ReviewProps[] = [
-  {
-    image: "https://github.com/shadcn.png",
-    name: "John Doe",
-    userName: "Product Manager",
-    comment:
-      "Wow NextJs + Shadcn is awesome!. This template lets me change colors, fonts and images to match my brand identity. ",
-    rating: 5.0,
-  },
-  {
-    image: "https://github.com/shadcn.png",
-    name: "Sophia Collins",
-    userName: "Cybersecurity Analyst",
-    comment:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna. ",
-    rating: 4.8,
-  },
-
-  {
-    image: "https://github.com/shadcn.png",
-    name: "Adam Johnson",
-    userName: "Chief Technology Officer",
-    comment:
-      "Lorem ipsum dolor sit amet,exercitation. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-    rating: 4.9,
-  },
-  {
-    image: "https://github.com/shadcn.png",
-    name: "Ethan Parker",
-    userName: "Data Scientist",
-    comment:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod labore et dolore magna aliqua. Ut enim ad minim veniam.",
-    rating: 5.0,
-  },
-  {
-    image: "https://github.com/shadcn.png",
-    name: "Ava Mitchell",
-    userName: "IT Project Manager",
-    comment:
-      "Lorem ipsum dolor sit amet, tempor incididunt  aliqua. Ut enim ad minim veniam, quis nostrud incididunt consectetur adipiscing elit.",
-    rating: 5.0,
-  },
-  {
-    image: "https://github.com/shadcn.png",
-    name: "Isabella Reed",
-    userName: "DevOps Engineer",
-    comment:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-    rating: 4.9,
-  },
-];
-
 export const TestimonialSection = () => {
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const plugin = useRef(
+    Autoplay({ delay: 5000, stopOnInteraction: true })
+  );
+
+  useEffect(() => {
+    fetchTestimonials();
+  }, []);
+
+  const fetchTestimonials = async () => {
+    try {
+      const response = await fetch("/api/v1/testimonials?status=PUBLISHED&limit=20");
+      const data = await response.json();
+      
+      if (data.success) {
+        setTestimonials(data.testimonials);
+      }
+    } catch (error) {
+      console.error("Error fetching testimonials:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section id="testimonials" className="container py-24 sm:py-32">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading testimonials...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (testimonials.length === 0) {
+    return null; // Don't show section if no testimonials
+  }
+
   return (
     <section id="testimonials" className="container py-24 sm:py-32">
-      <div className="text-center mb-8">
+      <div className="text-center mb-12">
         <h2 className="text-lg text-primary text-center mb-2 tracking-wider">
           Testimonials
         </h2>
 
         <h2 className="text-3xl md:text-4xl text-center font-bold mb-4">
-          Hear What Our 1000+ Clients Say
+          Success Stories From Our Clients
         </h2>
+        
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Hear from professionals who&apos;ve successfully started their careers abroad with our support
+        </p>
       </div>
 
       <Carousel
+        plugins={[plugin.current]}
         opts={{
           align: "start",
+          loop: true,
         }}
+        onMouseEnter={plugin.current.stop}
+        onMouseLeave={plugin.current.reset}
         className="relative w-[80%] sm:w-[90%] lg:max-w-screen-xl mx-auto"
       >
         <CarouselContent>
-          {reviewList.map((review) => (
+          {testimonials.map((testimonial) => (
             <CarouselItem
-              key={review.name}
+              key={testimonial.id}
               className="md:basis-1/2 lg:basis-1/3"
             >
-              <Card className="bg-muted/50 dark:bg-card">
-                <CardContent className="pt-6 pb-0">
-                  <div className="flex gap-1 pb-6">
-                    <Star className="size-4 fill-primary text-primary" />
-                    <Star className="size-4 fill-primary text-primary" />
-                    <Star className="size-4 fill-primary text-primary" />
-                    <Star className="size-4 fill-primary text-primary" />
-                    <Star className="size-4 fill-primary text-primary" />
+              <Card className="bg-muted/50 dark:bg-card h-full flex flex-col">
+                {/* Media Display */}
+                {testimonial.mediaUrl && (
+                  <div className="relative aspect-video bg-muted overflow-hidden rounded-t-lg">
+                    {testimonial.mediaType === "VIDEO" ? (
+                      <video
+                        src={testimonial.mediaUrl}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={testimonial.mediaUrl}
+                        alt={testimonial.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
                   </div>
-                  {`"${review.comment}"`}
+                )}
+
+                <CardContent className="pt-6 pb-4 flex-1">
+                  <p className="text-muted-foreground italic mb-4">
+                    &ldquo;{testimonial.comment}&rdquo;
+                  </p>
                 </CardContent>
 
-                <CardHeader>
-                  <div className="flex flex-row items-center gap-4">
-                    <Avatar>
-                      <AvatarImage
-                        src="https://avatars.githubusercontent.com/u/75042455?v=4"
-                        alt="radix"
-                      />
-                      <AvatarFallback>SV</AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex flex-col">
-                      <CardTitle className="text-lg">{review.name}</CardTitle>
-                      <CardDescription>{review.userName}</CardDescription>
-                    </div>
-                  </div>
+                <CardHeader className="pt-0">
+                  <CardTitle className="text-lg">{testimonial.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {testimonial.title}
+                  </p>
                 </CardHeader>
               </Card>
             </CarouselItem>

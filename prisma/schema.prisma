@@ -268,3 +268,43 @@ model JobVacancy {
   @@index([createdAt])
   @@map("job_vacancies")
 }
+
+// Testimonial Model
+enum TestimonialStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TestimonialMediaType {
+  PHOTO
+  VIDEO
+}
+
+model Testimonial {
+  id           String                @id @default(cuid())
+  name         String
+  title        String                // Job title or role
+  comment      String                @db.Text
+  rating       Float                 @default(5.0)
+  
+  // Media
+  mediaUrl     String?
+  mediaType    TestimonialMediaType?
+  thumbnailUrl String?               // For videos or optimized photo
+  
+  // Status
+  status       TestimonialStatus     @default(DRAFT)
+  order        Int                   @default(0) // For custom ordering
+  
+  // Timestamps
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  publishedAt  DateTime?
+
+  // Indexes
+  @@index([status])
+  @@index([order])
+  @@index([createdAt])
+  @@map("testimonials")
+}
