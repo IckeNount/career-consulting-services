@@ -55,6 +55,12 @@ enum BlogStatus {
   ARCHIVED
 }
 
+enum JobType {
+  FULL_TIME
+  CONTRACT
+  SUBSTITUTE
+}
+
 // Main Application Model
 model Application {
   id        String            @id @default(cuid())
@@ -63,34 +69,40 @@ model Application {
   status    ApplicationStatus @default(PENDING)
 
   // Personal Information
-  firstName       String
-  lastName        String
-  email           String        @unique
-  phone           String
-  dateOfBirth     DateTime
-  nationality     String
-  currentLocation String
+  fullName         String
+  email            String
+  phone            String
+  nationality      String
+  residence        String        // Current country of residence
+  religion         String
+  maritalStatus    String
 
-  // Professional Information
-  desiredCountry   String
-  desiredPosition  String
-  yearsExperience  Int
-  currentSalary    Decimal?  @db.Decimal(12, 2)
-  expectedSalary   Decimal?  @db.Decimal(12, 2)
-  educationLevel   EducationLevel
+  // Passport Information
+  hasPassport      Boolean       @default(false)
+  passportNumber   String?
 
-  // Documents (URLs from cloud storage)
-  resumeUrl       String?
-  coverLetterUrl  String?
-  portfolioUrl    String?
-  linkedInUrl     String?
+  // Job Preferences
+  startDate        DateTime
 
-  // Additional Information
-  skills     String[]
-  notes      String?   @db.Text
+  // Education & Documents
+  educationLevel   String        // Changed to String for flexibility
+  torFile          String?       // Transcript of Records file path/URL
+  diplomaFile      String?       // Degree/Diploma certificate file path/URL
+  resumeFile       String?       // CV/Resume file path/URL
+
+  // Experience & Skills
+  hasExperience    Boolean       @default(false)
+  experience       String?       @db.Text
+  languages        String        // Comma-separated languages
+  englishLevel     String
+  skills           String?       @db.Text
+
+  // Additional Details
+  motivation       String        @db.Text
+  referralSource   String
+  consent          Boolean       @default(false)
 
   // Relations
-  languages      Language[]
   statusHistory  StatusHistory[]
 
   // Admin fields
@@ -98,24 +110,20 @@ model Application {
   reviewNotes  String?   @db.Text
   reviewer     AdminUser? @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
 
+  // Job Vacancy relation
+  jobId        String?
+  job          JobVacancy? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
   // Indexes for performance
   @@index([email])
   @@index([status])
   @@index([createdAt])
-  @@index([desiredCountry])
+  @@index([residence])
+  @@index([jobId])
   @@map("applications")
 }
 
-// Language proficiency sub-model
-model Language {
-  id             String              @id @default(cuid())
-  language       String
-  proficiency    LanguageProficiency
-  applicationId  String
-  application    Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-
-  @@map("languages")
-}
+// Note: Language model removed as languages are now stored as comma-separated string in Application model
 
 // Status change history
 model StatusHistory {
@@ -232,4 +240,31 @@ model BlogMedia {
 
   @@index([postId])
   @@map("blog_media")
+}
+
+// Job Vacancy Model
+model JobVacancy {
+  id                  String      @id @default(cuid())
+  title               String
+  description         String      @db.Text
+  companyName         String
+  location            String
+  salaryRange         String?
+  requirements        String      @db.Text
+  jobType             JobType
+  applicationDeadline DateTime?
+  isActive            Boolean     @default(true)
+  
+  // Timestamps
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  
+  // Relations
+  applications        Application[]
+
+  // Indexes
+  @@index([isActive])
+  @@index([jobType])
+  @@index([createdAt])
+  @@map("job_vacancies")
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
+import { deleteFiles, extractFilePathFromUrl } from "@/lib/utils/file-cleanup";
 
 // GET /api/v1/blog/[id] - Get a single blog post
 export async function GET(
@@ -190,9 +191,12 @@ export async function DELETE(
       );
     }
 
-    // Check if post exists
+    // Fetch post with all media to get file paths before deletion
     const existingPost = await prisma.blogPost.findUnique({
       where: { id: params.id },
+      include: {
+        media: true,
+      },
     });
 
     if (!existingPost) {
@@ -202,12 +206,42 @@ export async function DELETE(
       );
     }
 
-    // Delete blog post
+    // Collect all file paths to delete
+    const filesToDelete: string[] = [];
+
+    // Add cover image if it exists and is not an external URL
+    if (existingPost.coverImage) {
+      const coverImagePath = extractFilePathFromUrl(existingPost.coverImage);
+      if (!coverImagePath.startsWith("http")) {
+        filesToDelete.push(coverImagePath);
+      }
+    }
+
+    // Add all media files
+    existingPost.media.forEach((mediaItem) => {
+      const mediaPath = extractFilePathFromUrl(mediaItem.url);
+      if (!mediaPath.startsWith("http")) {
+        filesToDelete.push(mediaPath);
+      }
+    });
+
+    // Delete blog post from database (this will cascade delete media records)
     await prisma.blogPost.delete({
       where: { id: params.id },
     });
 
-    return NextResponse.json({ message: "Blog post deleted successfully" });
+    // Delete physical files from filesystem (do this after DB deletion to avoid orphaned DB records)
+    if (filesToDelete.length > 0) {
+      const deleteResult = await deleteFiles(filesToDelete);
+      console.log(
+        `Deleted blog post ${params.id}: ${deleteResult.success} files removed, ${deleteResult.failed} files failed`
+      );
+    }
+
+    return NextResponse.json({
+      message: "Blog post deleted successfully",
+      filesDeleted: filesToDelete.length,
+    });
   } catch (error) {
     console.error("Error deleting blog post:", error);
     return NextResponse.json(

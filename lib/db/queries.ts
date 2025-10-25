@@ -7,6 +7,9 @@ import {
 } from "@prisma/client";
 import type { CreateApplicationInput, UpdateApplicationInput } from "@/types";
 
+// Type assertion to help VS Code IntelliSense with new models
+const db = prisma as any;
+
 /**
  * Application Queries
  */
@@ -14,65 +17,62 @@ import type { CreateApplicationInput, UpdateApplicationInput } from "@/types";
 // Create a new application
 export async function createApplication(data: CreateApplicationInput) {
   const {
-    languages,
-    currentSalary,
-    expectedSalary,
-    resumeUrl,
-    coverLetterUrl,
-    portfolioUrl,
-    linkedInUrl,
-    notes,
+    passportNumber,
+    experience,
+    skills,
+    torFile,
+    diplomaFile,
+    resumeFile,
+    jobId,
     ...applicationData
   } = data;
 
-  // Build base data object with required fields only
+  // Build base data object with required fields
   const cleanedData: any = {
-    firstName: applicationData.firstName,
-    lastName: applicationData.lastName,
+    fullName: applicationData.fullName,
     email: applicationData.email,
     phone: applicationData.phone,
-    dateOfBirth: new Date(applicationData.dateOfBirth),
     nationality: applicationData.nationality,
-    currentLocation: applicationData.currentLocation,
-    desiredCountry: applicationData.desiredCountry,
-    desiredPosition: applicationData.desiredPosition,
-    yearsExperience: applicationData.yearsExperience,
-    educationLevel: applicationData.educationLevel as EducationLevel,
-    skills: applicationData.skills,
+    residence: applicationData.residence,
+    religion: applicationData.religion,
+    maritalStatus: applicationData.maritalStatus,
+    hasPassport: applicationData.hasPassport,
+    startDate: new Date(applicationData.startDate),
+    educationLevel: applicationData.educationLevel,
+    hasExperience: applicationData.hasExperience,
+    languages: applicationData.languages,
+    englishLevel: applicationData.englishLevel,
+    motivation: applicationData.motivation,
+    referralSource: applicationData.referralSource,
+    consent: applicationData.consent,
   };
 
   // Add optional fields only if they have valid values
-  if (expectedSalary !== undefined && expectedSalary !== null) {
-    cleanedData.expectedSalary = new Prisma.Decimal(expectedSalary.toString());
+  if (passportNumber) {
+    cleanedData.passportNumber = passportNumber;
   }
-  if (currentSalary !== undefined && currentSalary !== null) {
-    cleanedData.currentSalary = new Prisma.Decimal(currentSalary.toString());
+  if (experience) {
+    cleanedData.experience = experience;
   }
-  if (resumeUrl) {
-    cleanedData.resumeUrl = resumeUrl;
+  if (skills) {
+    cleanedData.skills = skills;
   }
-  if (coverLetterUrl) {
-    cleanedData.coverLetterUrl = coverLetterUrl;
+  if (torFile) {
+    cleanedData.torFile = torFile;
   }
-  if (portfolioUrl) {
-    cleanedData.portfolioUrl = portfolioUrl;
+  if (diplomaFile) {
+    cleanedData.diplomaFile = diplomaFile;
   }
-  if (linkedInUrl) {
-    cleanedData.linkedInUrl = linkedInUrl;
+  if (resumeFile) {
+    cleanedData.resumeFile = resumeFile;
   }
-  if (notes) {
-    cleanedData.notes = notes;
+  if (jobId) {
+    cleanedData.jobId = jobId;
   }
 
   return await prisma.application.create({
     data: {
       ...cleanedData,
-      languages: {
-        create: languages.map((lang) => ({
-          language: lang.language,
-          proficiency: lang.proficiency as LanguageProficiency,
-        })),
-      },
       // Create initial status history entry for public submissions
       statusHistory: {
         create: {
@@ -83,9 +83,9 @@ export async function createApplication(data: CreateApplicationInput) {
       },
     },
     include: {
-      languages: true,
       statusHistory: true,
-    },
+      ...(jobId && { job: true }),
+    } as any,
   });
 }
 
@@ -94,7 +94,6 @@ export async function getApplicationById(id: string) {
   return await prisma.application.findUnique({
     where: { id },
     include: {
-      languages: true,
       statusHistory: {
         include: {
           admin: {
@@ -114,7 +113,7 @@ export async function getApplicationById(id: string) {
           email: true,
         },
       },
-    },
+    } as any,
   });
 }
 
@@ -126,6 +125,7 @@ export async function getApplications({
   search,
   sortBy = "createdAt",
   sortOrder = "desc",
+  jobId,
 }: {
   page?: number;
   pageSize?: number;
@@ -133,30 +133,30 @@ export async function getApplications({
   search?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  jobId?: string;
 }) {
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.ApplicationWhereInput = {
+  const where: any = {
     ...(status && { status }),
+    ...(jobId && { jobId }),
     ...(search && {
       OR: [
-        { firstName: { contains: search, mode: "insensitive" } },
-        { lastName: { contains: search, mode: "insensitive" } },
+        { fullName: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
-        { desiredPosition: { contains: search, mode: "insensitive" } },
-        { desiredCountry: { contains: search, mode: "insensitive" } },
+        { nationality: { contains: search, mode: "insensitive" } },
+        { residence: { contains: search, mode: "insensitive" } },
       ],
     }),
   };
 
   const [applications, total] = await Promise.all([
-    prisma.application.findMany({
+    db.application.findMany({
       where,
       skip,
       take: pageSize,
       orderBy: { [sortBy]: sortOrder },
       include: {
-        languages: true,
         reviewer: {
           select: {
             id: true,
@@ -164,9 +164,17 @@ export async function getApplications({
             email: true,
           },
         },
+        job: {
+          select: {
+            id: true,
+            title: true,
+            companyName: true,
+            location: true,
+          },
+        },
       },
     }),
-    prisma.application.count({ where }),
+    db.application.count({ where }),
   ]);
 
   return {
@@ -184,14 +192,15 @@ export async function getApplications({
 export async function updateApplicationStatus(
   id: string,
   status: ApplicationStatus,
-  adminId: string,
+  adminId: string | null,
   notes?: string
 ) {
   return await prisma.application.update({
     where: { id },
     data: {
       status,
-      reviewedBy: adminId,
+      ...(adminId && { reviewedBy: adminId }),
+      ...(notes !== undefined && { reviewNotes: notes }),
       updatedAt: new Date(),
       statusHistory: {
         create: {
@@ -202,8 +211,16 @@ export async function updateApplicationStatus(
       },
     },
     include: {
-      languages: true,
       statusHistory: true,
+      reviewer: adminId
+        ? {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          }
+        : undefined,
     },
   });
 }
@@ -309,8 +326,8 @@ export async function getDashboardStats() {
 
 // Get applications by country
 export async function getApplicationsByCountry() {
-  const result = await prisma.application.groupBy({
-    by: ["desiredCountry"],
+  const result = await (prisma.application.groupBy as any)({
+    by: ["residence"],
     _count: {
       id: true,
     },
@@ -322,16 +339,16 @@ export async function getApplicationsByCountry() {
     take: 10,
   });
 
-  return result.map((item) => ({
-    country: item.desiredCountry,
+  return result.map((item: any) => ({
+    country: item.residence,
     count: item._count.id,
   }));
 }
 
-// Get applications by position
-export async function getApplicationsByPosition() {
-  const result = await prisma.application.groupBy({
-    by: ["desiredPosition"],
+// Get applications by education level
+export async function getApplicationsByEducation() {
+  const result = await (prisma.application.groupBy as any)({
+    by: ["educationLevel"],
     _count: {
       id: true,
     },
@@ -343,8 +360,8 @@ export async function getApplicationsByPosition() {
     take: 10,
   });
 
-  return result.map((item) => ({
-    position: item.desiredPosition,
+  return result.map((item: any) => ({
+    education: item.educationLevel,
     count: item._count.id,
   }));
 }

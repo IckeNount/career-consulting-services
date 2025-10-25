@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -86,8 +86,11 @@ export const BlogSection = () => {
       {/* Auto-playing Carousel */}
       <div className='relative px-12'>
         {loading ? (
-          <div className='text-center py-12'>
-            <p className='text-muted-foreground'>Loading blog posts...</p>
+          <div className='flex items-center justify-center py-24'>
+            <div className='text-center space-y-4'>
+              <Loader2 className='h-12 w-12 animate-spin text-primary mx-auto' />
+              <p className='text-muted-foreground'>Loading blog posts...</p>
+            </div>
           </div>
         ) : posts.length === 0 ? (
           <div className='text-center py-12'>

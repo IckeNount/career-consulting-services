@@ -1,14 +1,12 @@
 import {
   Application,
   AdminUser,
-  Language,
   StatusHistory,
   AuditLog,
 } from "@prisma/client";
 
 // Application with relations
 export type ApplicationWithRelations = Application & {
-  languages: Language[];
   statusHistory: StatusHistory[];
   reviewer?: AdminUser | null;
 };
@@ -16,35 +14,41 @@ export type ApplicationWithRelations = Application & {
 // Create application input type
 export type CreateApplicationInput = {
   // Personal Information
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   phone: string;
-  dateOfBirth: Date;
   nationality: string;
-  currentLocation: string;
+  residence: string;
+  religion: string;
+  maritalStatus: string;
 
-  // Professional Information
-  desiredCountry: string;
-  desiredPosition: string;
-  yearsExperience: number;
-  currentSalary?: number | null;
-  expectedSalary?: number | null;
+  // Passport Information
+  hasPassport: boolean;
+  passportNumber?: string | null;
+
+  // Job Preferences
+  startDate: Date;
+
+  // Education & Documents
   educationLevel: string;
+  torFile?: any | null;
+  diplomaFile?: any | null;
+  resumeFile?: any | null;
 
-  // Documents
-  resumeUrl?: string | null;
-  coverLetterUrl?: string | null;
-  portfolioUrl?: string | null;
-  linkedInUrl?: string | null;
+  // Experience & Skills
+  hasExperience: boolean;
+  experience?: string | null;
+  languages: string;
+  englishLevel: string;
+  skills?: string | null;
 
-  // Additional
-  skills: string[];
-  languages: {
-    language: string;
-    proficiency: string;
-  }[];
-  notes?: string | null;
+  // Additional Details
+  motivation: string;
+  referralSource: string;
+  consent: boolean;
+
+  // Job relation
+  jobId?: string | null;
 };
 
 // Update application input type
@@ -100,4 +104,4 @@ export type PaginatedResponse<T> = {
 };
 
 // Export Prisma types
-export type { Application, AdminUser, Language, StatusHistory, AuditLog };
+export type { Application, AdminUser, StatusHistory, AuditLog };

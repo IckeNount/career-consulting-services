@@ -4,19 +4,28 @@ import {
   updateApplicationStatus,
   deleteApplication,
 } from "@/lib/db/queries";
-import { updateApplicationSchema } from "@/lib/validations/application";
 import {
-  apiResponse,
-  apiError,
+  UpdateApplicationRequestSchema,
+  ApplicationIdSchema,
+} from "@/lib/api/contracts/applications";
+import {
+  validateRequestWithParams,
   withErrorHandler,
-  parseRequestBody,
-} from "@/lib/api/utils";
+  successResponse,
+  errorResponse,
+} from "@/lib/api/middleware/validate";
+import { z } from "zod";
+import { deleteFiles, extractFilePathFromUrl } from "@/lib/utils/file-cleanup";
 
 type RouteContext = {
   params: {
     id: string;
   };
 };
+
+const ParamsSchema = z.object({
+  id: ApplicationIdSchema,
+});
 
 /**
  * GET /api/v1/applications/[id]
@@ -25,30 +34,19 @@ type RouteContext = {
  */
 export const GET = withErrorHandler(
   async (req: NextRequest, context: RouteContext) => {
-    // TODO: Verify authentication
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user) {
-    //   return apiError('Unauthorized', 401)
-    // }
-
     const { id } = context.params;
 
     if (!id) {
-      return apiError("Application ID is required", 400);
+      return errorResponse("Application ID is required", { status: 400 });
     }
 
     const application = await getApplicationById(id);
 
     if (!application) {
-      return apiError("Application not found", 404);
+      return errorResponse("Application not found", { status: 404 });
     }
 
-    // TODO: Check if user is admin or owns this application
-    // if (!session.user.isAdmin && application.email !== session.user.email) {
-    //   return apiError('Forbidden', 403)
-    // }
-
-    return apiResponse(application);
+    return successResponse(application);
   }
 );
 
@@ -56,63 +54,38 @@ export const GET = withErrorHandler(
  * PATCH /api/v1/applications/[id]
  * Protected endpoint - Update application (admin only)
  */
-export const PATCH = withErrorHandler(
-  async (req: NextRequest, context: RouteContext) => {
-    // TODO: Verify admin authentication
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.isAdmin) {
-    //   return apiError('Unauthorized - Admin access required', 401)
-    // }
-
-    const { id } = context.params;
-
-    if (!id) {
-      return apiError("Application ID is required", 400);
-    }
-
-    // Parse and validate request body
-    const body = await parseRequestBody(req);
-    const validatedData = updateApplicationSchema.parse(body);
-
+export async function PATCH(req: NextRequest, context: RouteContext) {
+  return validateRequestWithParams(
+    UpdateApplicationRequestSchema,
+    ParamsSchema
+  )(req, context.params, async (body, params) => {
     // Check if application exists
-    const existingApplication = await getApplicationById(id);
+    const existingApplication = await getApplicationById(params.id);
     if (!existingApplication) {
-      return apiError("Application not found", 404);
+      return errorResponse("Application not found", { status: 404 });
     }
 
     // Update application status
     const updatedApplication = await updateApplicationStatus(
-      id,
-      (validatedData.status as any) || existingApplication.status,
-      "TEMP_ADMIN_ID", // TODO: Replace with actual admin ID from session
-      validatedData.reviewNotes
+      params.id,
+      body.status || existingApplication.status,
+      body.adminId || null,
+      body.reviewNotes
     );
 
-    // TODO: Send status update email to applicant
-    // if (validatedData.status && validatedData.status !== existingApplication.status) {
-    //   await sendStatusUpdateEmail(
-    //     updatedApplication.email,
-    //     validatedData.status,
-    //     validatedData.reviewNotes
-    //   )
-    // }
-
-    // TODO: Log audit trail
-    // await createAuditLog({
-    //   userId: session.user.id,
-    //   action: 'UPDATE_APPLICATION',
-    //   entityType: 'application',
-    //   entityId: id,
-    //   changes: validatedData,
-    //   ipAddress: getClientIp(req),
-    //   userAgent: req.headers.get('user-agent') || undefined,
-    // })
-
-    return apiResponse(updatedApplication, {
-      message: "Application updated successfully",
-    });
-  }
-);
+    return successResponse(
+      {
+        id: updatedApplication.id,
+        status: updatedApplication.status,
+        reviewNotes: updatedApplication.reviewNotes,
+        updatedAt: updatedApplication.updatedAt.toISOString(),
+      },
+      {
+        message: "Application updated successfully",
+      }
+    );
+  });
+}
 
 /**
  * DELETE /api/v1/applications/[id]
@@ -120,39 +93,48 @@ export const PATCH = withErrorHandler(
  */
 export const DELETE = withErrorHandler(
   async (req: NextRequest, context: RouteContext) => {
-    // TODO: Verify admin authentication
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.isAdmin) {
-    //   return apiError('Unauthorized - Admin access required', 401)
-    // }
-
     const { id } = context.params;
 
     if (!id) {
-      return apiError("Application ID is required", 400);
+      return errorResponse("Application ID is required", { status: 400 });
     }
 
-    // Check if application exists
+    // Fetch application to get file paths before deletion
     const existingApplication = await getApplicationById(id);
     if (!existingApplication) {
-      return apiError("Application not found", 404);
+      return errorResponse("Application not found", { status: 404 });
     }
 
-    // Delete application
+    // Collect all file paths to delete
+    const filesToDelete: string[] = [];
+
+    if (existingApplication.resumeFile) {
+      filesToDelete.push(
+        extractFilePathFromUrl(existingApplication.resumeFile)
+      );
+    }
+    if (existingApplication.diplomaFile) {
+      filesToDelete.push(
+        extractFilePathFromUrl(existingApplication.diplomaFile)
+      );
+    }
+    if (existingApplication.torFile) {
+      filesToDelete.push(extractFilePathFromUrl(existingApplication.torFile));
+    }
+
+    // Delete application from database
     await deleteApplication(id);
 
-    // TODO: Log audit trail
-    // await createAuditLog({
-    //   userId: session.user.id,
-    //   action: 'DELETE_APPLICATION',
-    //   entityType: 'application',
-    //   entityId: id,
-    //   ipAddress: getClientIp(req),
-    //   userAgent: req.headers.get('user-agent') || undefined,
-    // })
+    // Delete physical files from filesystem
+    if (filesToDelete.length > 0) {
+      const deleteResult = await deleteFiles(filesToDelete);
+      console.log(
+        `Deleted application ${id}: ${deleteResult.success} files removed, ${deleteResult.failed} files failed`
+      );
+    }
 
-    return apiResponse(
-      { id },
+    return successResponse(
+      { id, filesDeleted: filesToDelete.length },
       {
         message: "Application deleted successfully",
       }

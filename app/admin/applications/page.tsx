@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   Mail,
@@ -18,37 +19,50 @@ import {
   MapPin,
   Calendar,
   DollarSign,
+  Check,
+  X,
+  Eye,
+  Clock,
+  FileEdit,
 } from "lucide-react";
 import Link from "next/link";
-
-type ApplicationStatus = "PENDING" | "REVIEWING" | "APPROVED" | "REJECTED";
+import { apiClient, ApiError } from "@/lib/api/client";
+import type { ApplicationStatus } from "@/lib/api/contracts/applications";
 
 type Application = {
   id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   phone: string;
-  dateOfBirth: string;
   nationality: string;
-  currentLocation: string;
-  desiredCountry: string;
-  desiredPosition: string;
-  yearsExperience: number;
-  currentSalary: number | null;
-  expectedSalary: number;
+  residence: string;
+  religion: string;
+  maritalStatus: string;
+  hasPassport: boolean;
+  passportNumber?: string | null;
+  startDate: string;
   educationLevel: string;
+  torFile?: string | null;
+  diplomaFile?: string | null;
+  resumeFile?: string | null;
+  hasExperience: boolean;
+  experience?: string | null;
+  languages: string;
+  englishLevel: string;
+  skills?: string | null;
+  motivation: string;
+  referralSource: string;
+  consent: boolean;
   status: ApplicationStatus;
   createdAt: string;
-  skills: string[];
-  languages: Array<{
-    language: string;
-    proficiency: string;
-  }>;
-  resumeUrl?: string;
-  coverLetterUrl?: string;
-  portfolioUrl?: string;
-  notes?: string;
+  reviewNotes?: string | null;
+  jobId?: string | null;
+  job?: {
+    id: string;
+    title: string;
+    companyName: string;
+    location: string;
+  } | null;
 };
 
 const statusColors = {
@@ -59,27 +73,58 @@ const statusColors = {
   REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-export default function ApplicationsPage() {
+function ApplicationsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobId = searchParams.get("jobId");
+
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [jobInfo, setJobInfo] = useState<any>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
 
   useEffect(() => {
     fetchApplications();
-  }, []);
+    if (jobId) {
+      fetchJobInfo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
+
+  const fetchJobInfo = async () => {
+    try {
+      const result = await apiClient.jobs.get(jobId!);
+      setJobInfo(result.data);
+    } catch (err) {
+      console.error("Failed to fetch job info", err);
+    }
+  };
 
   const fetchApplications = async () => {
     try {
-      const response = await fetch("/api/v1/applications");
-      if (!response.ok) throw new Error("Failed to fetch applications");
-
-      const result = await response.json();
-      setApplications(result.data || []);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load applications"
+      const result = await apiClient.applications.list(
+        jobId ? { jobId } : undefined
       );
+
+      setApplications(result.data || []);
+
+      // Initialize review notes state
+      const notesMap: Record<string, string> = {};
+      (result.data || []).forEach((app: any) => {
+        if (app.reviewNotes) {
+          notesMap[app.id] = app.reviewNotes;
+        }
+      });
+      setReviewNotes(notesMap);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(`${err.message} (${err.status})`);
+      } else {
+        setError("Failed to load applications");
+      }
     } finally {
       setLoading(false);
     }
@@ -93,13 +138,66 @@ export default function ApplicationsPage() {
     });
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return "N/A";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(amount);
+  const updateApplicationStatus = async (
+    applicationId: string,
+    newStatus: ApplicationStatus,
+    notes?: string
+  ) => {
+    setUpdatingStatus(applicationId);
+    try {
+      await apiClient.applications.update(applicationId, {
+        status: newStatus,
+        ...(notes !== undefined && { reviewNotes: notes }),
+      });
+
+      // Refresh applications after update
+      await fetchApplications();
+      setEditingNotes(null);
+    } catch (err) {
+      console.error("Error updating status:", err);
+
+      if (err instanceof ApiError) {
+        alert(`Failed to update: ${err.message} (Status: ${err.status})`);
+      } else {
+        alert("Failed to update application status");
+      }
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const saveReviewNotes = async (applicationId: string) => {
+    await updateApplicationStatus(
+      applicationId,
+      applications.find((app) => app.id === applicationId)?.status || "PENDING",
+      reviewNotes[applicationId] || ""
+    );
+  };
+
+  const getStatusButton = (
+    appId: string,
+    currentStatus: ApplicationStatus,
+    targetStatus: ApplicationStatus,
+    label: string,
+    icon: any,
+    variant: "default" | "outline" | "destructive" | "secondary" = "outline"
+  ) => {
+    const Icon = icon;
+    const isCurrentStatus = currentStatus === targetStatus;
+    const isUpdating = updatingStatus === appId;
+
+    return (
+      <Button
+        variant={isCurrentStatus ? "default" : variant}
+        size='sm'
+        onClick={() => updateApplicationStatus(appId, targetStatus)}
+        disabled={isCurrentStatus || isUpdating}
+        className='gap-1'
+      >
+        <Icon className='h-3 w-3' />
+        {label}
+      </Button>
+    );
   };
 
   if (loading) {
@@ -142,9 +240,17 @@ export default function ApplicationsPage() {
               </Link>
             </Button>
             <div>
-              <h1 className='text-4xl font-bold'>Applications</h1>
+              <h1 className='text-4xl font-bold'>
+                {jobInfo ? `Applications for ${jobInfo.title}` : "Applications"}
+              </h1>
               <p className='text-muted-foreground mt-2'>
-                {applications.length} total applications
+                {jobInfo && (
+                  <span>
+                    {jobInfo.companyName} • {jobInfo.location} <br />
+                  </span>
+                )}
+                {applications.length} total application
+                {applications.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
@@ -172,14 +278,20 @@ export default function ApplicationsPage() {
                 <CardHeader>
                   <div className='flex items-start justify-between'>
                     <div>
-                      <CardTitle className='text-2xl'>
-                        {app.firstName} {app.lastName}
-                      </CardTitle>
+                      <CardTitle className='text-2xl'>{app.fullName}</CardTitle>
                       <CardDescription className='mt-2'>
-                        Applied for:{" "}
-                        <span className='font-semibold'>
-                          {app.desiredPosition}
-                        </span>
+                        {app.job ? (
+                          <>
+                            Applied for:{" "}
+                            <span className='font-semibold'>
+                              {app.job.title}
+                            </span>
+                            <br />
+                            {app.job.companyName} • {app.job.location}
+                          </>
+                        ) : (
+                          <>General Application</>
+                        )}
                       </CardDescription>
                     </div>
                     <Badge className={statusColors[app.status]}>
@@ -206,7 +318,7 @@ export default function ApplicationsPage() {
                     <div className='flex items-center gap-2 text-sm'>
                       <MapPin className='h-4 w-4 text-muted-foreground' />
                       <span>
-                        {app.currentLocation} → {app.desiredCountry}
+                        {app.nationality} • Currently in {app.residence}
                       </span>
                     </div>
                     <div className='flex items-center gap-2 text-sm'>
@@ -215,76 +327,88 @@ export default function ApplicationsPage() {
                     </div>
                   </div>
 
-                  {/* Professional Details */}
+                  {/* Personal Details */}
                   <div className='grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t'>
-                    <div>
-                      <p className='text-xs text-muted-foreground mb-1'>
-                        Experience
-                      </p>
-                      <p className='font-semibold'>
-                        {app.yearsExperience} years
-                      </p>
-                    </div>
                     <div>
                       <p className='text-xs text-muted-foreground mb-1'>
                         Education
                       </p>
-                      <p className='font-semibold'>
-                        {app.educationLevel.replace("_", " ")}
+                      <p className='font-semibold text-sm'>
+                        {app.educationLevel}
                       </p>
                     </div>
                     <div>
                       <p className='text-xs text-muted-foreground mb-1'>
-                        Current Salary
+                        English Level
                       </p>
-                      <p className='font-semibold'>
-                        {formatCurrency(app.currentSalary)}
+                      <p className='font-semibold text-sm'>
+                        {app.englishLevel}
                       </p>
                     </div>
                     <div>
                       <p className='text-xs text-muted-foreground mb-1'>
-                        Expected Salary
+                        Marital Status
                       </p>
-                      <p className='font-semibold'>
-                        {formatCurrency(app.expectedSalary)}
+                      <p className='font-semibold text-sm'>
+                        {app.maritalStatus}
+                      </p>
+                    </div>
+                    <div>
+                      <p className='text-xs text-muted-foreground mb-1'>
+                        Passport
+                      </p>
+                      <p className='font-semibold text-sm'>
+                        {app.hasPassport ? "Yes" : "No"}
                       </p>
                     </div>
                   </div>
 
-                  {/* Skills */}
-                  {app.skills && app.skills.length > 0 && (
+                  {/* Languages */}
+                  {app.languages && (
                     <div>
-                      <p className='text-sm font-semibold mb-2'>Skills:</p>
-                      <div className='flex flex-wrap gap-2'>
-                        {app.skills.map((skill, idx) => (
-                          <Badge key={idx} variant='secondary'>
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
+                      <p className='text-sm font-semibold mb-2'>Languages:</p>
+                      <p className='text-sm text-muted-foreground'>
+                        {app.languages}
+                      </p>
                     </div>
                   )}
 
-                  {/* Languages */}
-                  {app.languages && app.languages.length > 0 && (
+                  {/* Skills */}
+                  {app.skills && (
                     <div>
-                      <p className='text-sm font-semibold mb-2'>Languages:</p>
-                      <div className='flex flex-wrap gap-2'>
-                        {app.languages.map((lang, idx) => (
-                          <Badge key={idx} variant='outline'>
-                            {lang.language} ({lang.proficiency})
-                          </Badge>
-                        ))}
-                      </div>
+                      <p className='text-sm font-semibold mb-2'>Skills:</p>
+                      <p className='text-sm text-muted-foreground'>
+                        {app.skills}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Experience */}
+                  {app.hasExperience && app.experience && (
+                    <div>
+                      <p className='text-sm font-semibold mb-2'>Experience:</p>
+                      <p className='text-sm text-muted-foreground whitespace-pre-wrap'>
+                        {app.experience}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Motivation */}
+                  {app.motivation && (
+                    <div>
+                      <p className='text-sm font-semibold mb-2'>Motivation:</p>
+                      <p className='text-sm text-muted-foreground whitespace-pre-wrap'>
+                        {app.motivation}
+                      </p>
                     </div>
                   )}
 
                   {/* Documents */}
                   <div className='flex flex-wrap gap-2 pt-4 border-t'>
-                    {app.resumeUrl && (
+                    {app.resumeFile && (
                       <Button variant='outline' size='sm' asChild>
                         <a
-                          href={app.resumeUrl}
+                          href={app.resumeFile}
                           target='_blank'
                           rel='noopener noreferrer'
                         >
@@ -292,46 +416,138 @@ export default function ApplicationsPage() {
                         </a>
                       </Button>
                     )}
-                    {app.coverLetterUrl && (
+                    {app.diplomaFile && (
                       <Button variant='outline' size='sm' asChild>
                         <a
-                          href={app.coverLetterUrl}
+                          href={app.diplomaFile}
                           target='_blank'
                           rel='noopener noreferrer'
                         >
-                          View Cover Letter
+                          View Diploma
                         </a>
                       </Button>
                     )}
-                    {app.portfolioUrl && (
+                    {app.torFile && (
                       <Button variant='outline' size='sm' asChild>
                         <a
-                          href={app.portfolioUrl}
+                          href={app.torFile}
                           target='_blank'
                           rel='noopener noreferrer'
                         >
-                          View Portfolio
+                          View Transcript
                         </a>
                       </Button>
                     )}
-                    <Button variant='default' size='sm' asChild>
-                      <Link href={`/admin/applications/${app.id}`}>
-                        View Details
-                      </Link>
-                    </Button>
                   </div>
 
-                  {/* Notes */}
-                  {app.notes && (
-                    <div className='pt-4 border-t'>
-                      <p className='text-sm font-semibold mb-1'>
-                        Additional Notes:
-                      </p>
-                      <p className='text-sm text-muted-foreground'>
-                        {app.notes}
-                      </p>
+                  {/* Review Notes */}
+                  <div className='pt-4 border-t'>
+                    <div className='flex items-center justify-between mb-2'>
+                      <p className='text-sm font-semibold'>Review Notes:</p>
+                      {editingNotes !== app.id && (
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => setEditingNotes(app.id)}
+                        >
+                          <FileEdit className='h-3 w-3 mr-1' />
+                          {app.reviewNotes ? "Edit" : "Add Notes"}
+                        </Button>
+                      )}
                     </div>
-                  )}
+                    {editingNotes === app.id ? (
+                      <div className='space-y-2'>
+                        <Textarea
+                          placeholder='Add review notes for this application...'
+                          value={reviewNotes[app.id] || ""}
+                          onChange={(e) =>
+                            setReviewNotes((prev) => ({
+                              ...prev,
+                              [app.id]: e.target.value,
+                            }))
+                          }
+                          rows={4}
+                          className='w-full'
+                        />
+                        <div className='flex gap-2'>
+                          <Button
+                            size='sm'
+                            onClick={() => saveReviewNotes(app.id)}
+                            disabled={updatingStatus === app.id}
+                          >
+                            Save Notes
+                          </Button>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            onClick={() => {
+                              setEditingNotes(null);
+                              setReviewNotes((prev) => ({
+                                ...prev,
+                                [app.id]: app.reviewNotes || "",
+                              }));
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : app.reviewNotes ? (
+                      <p className='text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded-md'>
+                        {app.reviewNotes}
+                      </p>
+                    ) : (
+                      <p className='text-sm text-muted-foreground italic'>
+                        No review notes yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Status Actions */}
+                  <div className='pt-4 border-t'>
+                    <p className='text-sm font-semibold mb-3'>
+                      Update Application Status:
+                    </p>
+                    <div className='flex flex-wrap gap-2'>
+                      {getStatusButton(
+                        app.id,
+                        app.status,
+                        "PENDING",
+                        "Pending",
+                        Clock,
+                        "outline"
+                      )}
+                      {getStatusButton(
+                        app.id,
+                        app.status,
+                        "REVIEWING",
+                        "Under Review",
+                        Eye,
+                        "outline"
+                      )}
+                      {getStatusButton(
+                        app.id,
+                        app.status,
+                        "APPROVED",
+                        "Approve",
+                        Check,
+                        "default"
+                      )}
+                      {getStatusButton(
+                        app.id,
+                        app.status,
+                        "REJECTED",
+                        "Reject",
+                        X,
+                        "destructive"
+                      )}
+                    </div>
+                    {updatingStatus === app.id && (
+                      <p className='text-xs text-muted-foreground mt-2'>
+                        Updating status...
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -339,5 +555,23 @@ export default function ApplicationsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ApplicationsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className='min-h-screen bg-background p-8'>
+          <div className='max-w-7xl mx-auto'>
+            <div className='flex items-center justify-center h-64'>
+              <p className='text-muted-foreground'>Loading applications...</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ApplicationsPageContent />
+    </Suspense>
   );
 }

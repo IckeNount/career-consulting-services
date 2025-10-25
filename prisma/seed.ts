@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient() as any; // Type workaround for seed script
 
 async function main() {
   console.log("🌱 Starting database seed...");
@@ -27,26 +27,26 @@ async function main() {
   const sampleApplications = await Promise.all([
     prisma.application.create({
       data: {
-        firstName: "John",
-        lastName: "Doe",
+        fullName: "John Doe",
         email: "john.doe@example.com",
         phone: "+1234567890",
-        dateOfBirth: new Date("1990-01-15"),
         nationality: "United States",
-        currentLocation: "New York, USA",
-        desiredCountry: "Germany",
-        desiredPosition: "Software Engineer",
-        yearsExperience: 5,
-        expectedSalary: 80000,
-        educationLevel: "BACHELOR",
-        resumeUrl: "https://example.com/resume.pdf",
-        skills: ["JavaScript", "React", "Node.js", "TypeScript"],
-        languages: {
-          create: [
-            { language: "English", proficiency: "NATIVE" },
-            { language: "German", proficiency: "INTERMEDIATE" },
-          ],
-        },
+        residence: "New York, USA",
+        religion: "Christian",
+        maritalStatus: "Single",
+        hasPassport: true,
+        passportNumber: "US123456789",
+        startDate: new Date("2025-03-01"),
+        educationLevel: "Bachelor's Degree",
+        skills: "JavaScript, React, Node.js, TypeScript",
+        languages: "English, German",
+        englishLevel: "Native",
+        hasExperience: true,
+        experience: "5 years of software development experience",
+        motivation:
+          "Seeking opportunities to work abroad and expand my technical skills.",
+        referralSource: "LinkedIn",
+        consent: true,
         statusHistory: {
           create: {
             status: "PENDING",
@@ -57,29 +57,26 @@ async function main() {
     }),
     prisma.application.create({
       data: {
-        firstName: "Maria",
-        lastName: "Garcia",
+        fullName: "Maria Garcia",
         email: "maria.garcia@example.com",
         phone: "+34123456789",
-        dateOfBirth: new Date("1992-05-20"),
         nationality: "Spain",
-        currentLocation: "Madrid, Spain",
-        desiredCountry: "Canada",
-        desiredPosition: "Data Analyst",
-        yearsExperience: 3,
-        currentSalary: 35000,
-        expectedSalary: 60000,
-        educationLevel: "MASTER",
-        resumeUrl: "https://example.com/resume2.pdf",
-        coverLetterUrl: "https://example.com/cover2.pdf",
-        skills: ["Python", "SQL", "Power BI", "Statistics"],
-        languages: {
-          create: [
-            { language: "Spanish", proficiency: "NATIVE" },
-            { language: "English", proficiency: "ADVANCED" },
-            { language: "French", proficiency: "BASIC" },
-          ],
-        },
+        residence: "Madrid, Spain",
+        religion: "Catholic",
+        maritalStatus: "Married",
+        hasPassport: true,
+        passportNumber: "ES987654321",
+        startDate: new Date("2025-04-01"),
+        educationLevel: "Master's Degree",
+        skills: "Python, SQL, Power BI, Statistics",
+        languages: "Spanish, English, French",
+        englishLevel: "Advanced",
+        hasExperience: true,
+        experience: "3 years of data analysis experience",
+        motivation:
+          "Looking to advance my career in data analytics internationally.",
+        referralSource: "Job Board",
+        consent: true,
         statusHistory: {
           create: {
             status: "REVIEWING",

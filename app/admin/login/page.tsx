@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
+import { CompanyLogo } from "@/components/icons/company-logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -71,6 +72,9 @@ export default function LoginPage() {
     <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4'>
       <Card className='w-full max-w-md'>
         <CardHeader className='space-y-1'>
+          <div className='flex justify-center mb-4'>
+            <CompanyLogo width={64} height={64} />
+          </div>
           <CardTitle className='text-2xl font-bold text-center'>
             Admin Login
           </CardTitle>

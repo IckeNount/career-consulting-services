@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,24 +20,51 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DocumentUpload } from "@/components/ui/document-upload";
 
-type LanguageEntry = {
-  language: string;
-  proficiency: "BASIC" | "INTERMEDIATE" | "ADVANCED" | "NATIVE";
-};
+function ApplyPageContent() {
+  const searchParams = useSearchParams();
+  const jobId = searchParams.get("jobId");
 
-export default function ApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "success" | "error" | null;
     message: string;
   }>({ type: null, message: "" });
 
-  const [languages, setLanguages] = useState<LanguageEntry[]>([
-    { language: "", proficiency: "INTERMEDIATE" },
-  ]);
+  // State for conditional fields
+  const [hasPassport, setHasPassport] = useState<string>("No");
+  const [hasExperience, setHasExperience] = useState<string>("No");
+  const [consentChecked, setConsentChecked] = useState(false);
 
+  // State for select fields
+  const [maritalStatus, setMaritalStatus] = useState<string>("");
   const [educationLevel, setEducationLevel] = useState<string>("");
+  const [englishLevel, setEnglishLevel] = useState<string>("");
+  const [referralSource, setReferralSource] = useState<string>("");
+
+  // State for file uploads
+  const [torFile, setTorFile] = useState<string | null>(null);
+  const [diplomaFile, setDiplomaFile] = useState<string | null>(null);
+  const [resumeFile, setResumeFile] = useState<string | null>(null);
+
+  const [jobInfo, setJobInfo] = useState<any>(null);
+
+  useEffect(() => {
+    if (jobId) {
+      // Fetch job details
+      fetch(`/api/v1/jobs/${jobId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setJobInfo(data.data);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch job details", err));
+    }
+  }, [jobId]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,55 +73,77 @@ export default function ApplyPage() {
 
     const formData = new FormData(e.currentTarget);
 
-    // Validate education level
-    if (!educationLevel) {
+    // Validate required select fields
+    if (!maritalStatus) {
       setSubmitStatus({
         type: "error",
-        message: "Please select an education level.",
+        message: "Please select your marital status.",
       });
       setIsSubmitting(false);
       return;
     }
 
-    // Parse skills (comma-separated)
-    const skillsInput = formData.get("skills") as string;
-    const skills = skillsInput
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    if (!educationLevel) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please select your education level.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
-    // Filter out empty languages
-    const validLanguages = languages.filter(
-      (lang) => lang.language.trim().length > 0
-    );
+    if (!englishLevel) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please select your English proficiency level.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!referralSource) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please tell us how you heard about us.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!consentChecked) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please agree to the terms and privacy policy.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
     const applicationData = {
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
+      fullName: formData.get("fullName"),
       email: formData.get("email"),
       phone: formData.get("phone"),
-      dateOfBirth: formData.get("dateOfBirth"),
       nationality: formData.get("nationality"),
-      currentLocation: formData.get("currentLocation"),
-      desiredCountry: formData.get("desiredCountry"),
-      desiredPosition: formData.get("desiredPosition"),
-      yearsExperience: parseInt(formData.get("yearsExperience") as string) || 0,
-      currentSalary:
-        formData.get("currentSalary") && formData.get("currentSalary") !== ""
-          ? parseFloat(formData.get("currentSalary") as string)
-          : undefined,
-      expectedSalary:
-        formData.get("expectedSalary") && formData.get("expectedSalary") !== ""
-          ? parseFloat(formData.get("expectedSalary") as string)
-          : undefined,
+      residence: formData.get("residence"),
+      religion: formData.get("religion"),
+      maritalStatus,
+      hasPassport: hasPassport === "Yes",
+      passportNumber:
+        hasPassport === "Yes" ? formData.get("passportNumber") : null,
+      startDate: formData.get("startDate"),
       educationLevel,
-      resumeUrl: formData.get("resumeUrl") || undefined,
-      coverLetterUrl: formData.get("coverLetterUrl") || undefined,
-      portfolioUrl: formData.get("portfolioUrl") || undefined,
-      linkedInUrl: formData.get("linkedInUrl") || undefined,
-      skills,
-      languages: validLanguages,
-      notes: formData.get("notes") || undefined,
+      torFile,
+      diplomaFile,
+      resumeFile,
+      hasExperience: hasExperience === "Yes",
+      experience: hasExperience === "Yes" ? formData.get("experience") : null,
+      languages: formData.get("languages"),
+      englishLevel,
+      skills: formData.get("skills") || null,
+      motivation: formData.get("motivation"),
+      referralSource,
+      consent: consentChecked,
+      jobId: jobId || null,
     };
 
     try {
@@ -115,13 +165,31 @@ export default function ApplyPage() {
         });
         // Reset form
         (e.target as HTMLFormElement).reset();
-        setLanguages([{ language: "", proficiency: "INTERMEDIATE" }]);
+        setMaritalStatus("");
         setEducationLevel("");
+        setEnglishLevel("");
+        setReferralSource("");
+        setHasPassport("No");
+        setHasExperience("No");
+        setConsentChecked(false);
+        setTorFile(null);
+        setDiplomaFile(null);
+        setResumeFile(null);
       } else {
+        // Handle different error types
+        let errorMessage = "Failed to submit application. Please try again.";
+        
+        if (response.status === 409) {
+          errorMessage = result.error || "You have already submitted an application with this email.";
+        } else if (result.error) {
+          errorMessage = result.error;
+        } else if (result.message) {
+          errorMessage = result.message;
+        }
+        
         setSubmitStatus({
           type: "error",
-          message:
-            result.message || "Failed to submit application. Please try again.",
+          message: errorMessage,
         });
       }
     } catch (error) {
@@ -134,32 +202,20 @@ export default function ApplyPage() {
     }
   };
 
-  const addLanguage = () => {
-    setLanguages([...languages, { language: "", proficiency: "INTERMEDIATE" }]);
-  };
-
-  const removeLanguage = (index: number) => {
-    setLanguages(languages.filter((_, i) => i !== index));
-  };
-
-  const updateLanguage = (
-    index: number,
-    field: keyof LanguageEntry,
-    value: string
-  ) => {
-    const updated = [...languages];
-    updated[index] = { ...updated[index], [field]: value };
-    setLanguages(updated);
-  };
-
   return (
     <div className='container mx-auto py-12 px-4 max-w-4xl'>
       <Card>
         <CardHeader>
           <CardTitle className='text-3xl'>Career Application</CardTitle>
           <CardDescription>
-            Fill out the form below to submit your application. All fields
-            marked with * are required.
+            {jobInfo ? (
+              <>
+                Applying for <strong>{jobInfo.title}</strong> at{" "}
+                <strong>{jobInfo.companyName}</strong>
+              </>
+            ) : (
+              "Fill out the form below to submit your application. All fields marked with * are required."
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -176,288 +232,338 @@ export default function ApplyPage() {
           )}
 
           <form onSubmit={handleSubmit} className='space-y-6'>
-            {/* Personal Information */}
+            {/* Section 1: Personal Information */}
             <div className='space-y-4'>
               <h3 className='text-lg font-semibold'>Personal Information</h3>
 
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div className='space-y-2'>
-                  <Label htmlFor='firstName'>First Name *</Label>
-                  <Input id='firstName' name='firstName' required />
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='lastName'>Last Name *</Label>
-                  <Input id='lastName' name='lastName' required />
-                </div>
+              <div className='space-y-2'>
+                <Label htmlFor='fullName'>Full Name *</Label>
+                <Input
+                  id='fullName'
+                  name='fullName'
+                  placeholder='Enter your full name'
+                  required
+                />
               </div>
 
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div className='space-y-2'>
-                  <Label htmlFor='email'>Email *</Label>
-                  <Input id='email' name='email' type='email' required />
+                  <Label htmlFor='email'>Email Address *</Label>
+                  <Input
+                    id='email'
+                    name='email'
+                    type='email'
+                    placeholder='name@email.com'
+                    required
+                  />
                 </div>
                 <div className='space-y-2'>
-                  <Label htmlFor='phone'>Phone *</Label>
+                  <Label htmlFor='phone'>Phone Number *</Label>
                   <Input
                     id='phone'
                     name='phone'
                     type='tel'
-                    placeholder='+1234567890'
+                    placeholder='+66 123 456 789'
                     required
                   />
                 </div>
               </div>
 
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div className='space-y-2'>
-                  <Label htmlFor='dateOfBirth'>Date of Birth *</Label>
-                  <Input
-                    id='dateOfBirth'
-                    name='dateOfBirth'
-                    type='date'
-                    required
-                  />
-                </div>
                 <div className='space-y-2'>
                   <Label htmlFor='nationality'>Nationality *</Label>
                   <Input
                     id='nationality'
                     name='nationality'
-                    placeholder='e.g., United States'
+                    placeholder='Enter your nationality'
+                    required
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='residence'>
+                    Current Country of Residence *
+                  </Label>
+                  <Input
+                    id='residence'
+                    name='residence'
+                    placeholder='Enter your current country'
                     required
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Location & Position */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold'>Location & Position</h3>
 
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div className='space-y-2'>
-                  <Label htmlFor='currentLocation'>Current Location *</Label>
+                  <Label htmlFor='religion'>Religion *</Label>
                   <Input
-                    id='currentLocation'
-                    name='currentLocation'
-                    placeholder='City, Country'
+                    id='religion'
+                    name='religion'
+                    placeholder='Enter your religion'
                     required
                   />
                 </div>
                 <div className='space-y-2'>
-                  <Label htmlFor='desiredCountry'>Desired Country *</Label>
-                  <Input
-                    id='desiredCountry'
-                    name='desiredCountry'
-                    placeholder='Where do you want to work?'
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className='space-y-2'>
-                <Label htmlFor='desiredPosition'>Desired Position *</Label>
-                <Input
-                  id='desiredPosition'
-                  name='desiredPosition'
-                  placeholder='e.g., Software Engineer'
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Experience & Education */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold'>Experience & Education</h3>
-
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div className='space-y-2'>
-                  <Label htmlFor='yearsExperience'>Years of Experience *</Label>
-                  <Input
-                    id='yearsExperience'
-                    name='yearsExperience'
-                    type='number'
-                    min='0'
-                    defaultValue='0'
-                    required
-                  />
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='educationLevel'>Education Level *</Label>
+                  <Label htmlFor='maritalStatus'>Marital Status *</Label>
                   <Select
-                    value={educationLevel}
-                    onValueChange={setEducationLevel}
+                    value={maritalStatus}
+                    onValueChange={setMaritalStatus}
                     required
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder='Select education level' />
+                      <SelectValue placeholder='Select your marital status' />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value='HIGH_SCHOOL'>High School</SelectItem>
-                      <SelectItem value='ASSOCIATE'>
-                        Associate Degree
-                      </SelectItem>
-                      <SelectItem value='BACHELOR'>
-                        Bachelor&apos;s Degree
-                      </SelectItem>
-                      <SelectItem value='MASTER'>
-                        Master&apos;s Degree
-                      </SelectItem>
-                      <SelectItem value='PHD'>PhD</SelectItem>
-                      <SelectItem value='OTHER'>Other</SelectItem>
+                      <SelectItem value='Single'>Single</SelectItem>
+                      <SelectItem value='Married'>Married</SelectItem>
+                      <SelectItem value='Divorced'>Divorced</SelectItem>
+                      <SelectItem value='Widowed'>Widowed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='space-y-2'>
+                <Label>Do you have a valid passport? *</Label>
+                <RadioGroup value={hasPassport} onValueChange={setHasPassport}>
+                  <div className='flex items-center space-x-2'>
+                    <RadioGroupItem value='Yes' id='passport-yes' />
+                    <Label
+                      htmlFor='passport-yes'
+                      className='font-normal cursor-pointer'
+                    >
+                      Yes
+                    </Label>
+                  </div>
+                  <div className='flex items-center space-x-2'>
+                    <RadioGroupItem value='No' id='passport-no' />
+                    <Label
+                      htmlFor='passport-no'
+                      className='font-normal cursor-pointer'
+                    >
+                      No
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {hasPassport === "Yes" && (
                 <div className='space-y-2'>
-                  <Label htmlFor='currentSalary'>Current Salary (USD)</Label>
+                  <Label htmlFor='passportNumber'>Passport Number *</Label>
                   <Input
-                    id='currentSalary'
-                    name='currentSalary'
-                    type='number'
-                    min='0'
-                    placeholder='Optional'
+                    id='passportNumber'
+                    name='passportNumber'
+                    placeholder='Enter your passport number'
+                    required={hasPassport === "Yes"}
                   />
                 </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='expectedSalary'>Expected Salary (USD)</Label>
-                  <Input
-                    id='expectedSalary'
-                    name='expectedSalary'
-                    type='number'
-                    min='0'
-                    placeholder='Optional'
-                  />
-                </div>
+              )}
+            </div>
+
+            {/* Section 2: Job Preferences */}
+            <div className='space-y-4'>
+              <h3 className='text-lg font-semibold'>Job Preferences</h3>
+
+              <div className='space-y-2'>
+                <Label htmlFor='startDate'>Available Start Date *</Label>
+                <Input id='startDate' name='startDate' type='date' required />
               </div>
             </div>
 
-            {/* Skills & Languages */}
+            {/* Section 3: Education & Documents */}
             <div className='space-y-4'>
-              <h3 className='text-lg font-semibold'>Skills & Languages</h3>
+              <h3 className='text-lg font-semibold'>Education & Documents</h3>
 
               <div className='space-y-2'>
-                <Label htmlFor='skills'>Skills *</Label>
+                <Label htmlFor='educationLevel'>
+                  Highest Education Level *
+                </Label>
+                <Select
+                  value={educationLevel}
+                  onValueChange={setEducationLevel}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='Select your education level' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='High School'>High School</SelectItem>
+                    <SelectItem value="Bachelor's Degree">
+                      Bachelor&apos;s Degree
+                    </SelectItem>
+                    <SelectItem value="Master's Degree">
+                      Master&apos;s Degree
+                    </SelectItem>
+                    <SelectItem value='Other'>Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DocumentUpload
+                value={torFile}
+                onChange={setTorFile}
+                label='Transcript of Records (TOR)'
+                description='Upload your transcript of records (PDF, DOC, DOCX - max 10MB)'
+              />
+
+              <DocumentUpload
+                value={diplomaFile}
+                onChange={setDiplomaFile}
+                label='Degree or Diploma Certificate'
+                description='Upload your degree or diploma certificate (PDF, DOC, DOCX - max 10MB)'
+              />
+
+              <DocumentUpload
+                value={resumeFile}
+                onChange={setResumeFile}
+                label='CV or Resume'
+                description='Upload your CV or resume (PDF, DOC, DOCX - max 10MB)'
+              />
+            </div>
+
+            {/* Section 4: Experience & Skills */}
+            <div className='space-y-4'>
+              <h3 className='text-lg font-semibold'>Experience & Skills</h3>
+
+              <div className='space-y-2'>
+                <Label>Do you have teaching or work experience? *</Label>
+                <RadioGroup
+                  value={hasExperience}
+                  onValueChange={setHasExperience}
+                >
+                  <div className='flex items-center space-x-2'>
+                    <RadioGroupItem value='Yes' id='experience-yes' />
+                    <Label
+                      htmlFor='experience-yes'
+                      className='font-normal cursor-pointer'
+                    >
+                      Yes
+                    </Label>
+                  </div>
+                  <div className='flex items-center space-x-2'>
+                    <RadioGroupItem value='No' id='experience-no' />
+                    <Label
+                      htmlFor='experience-no'
+                      className='font-normal cursor-pointer'
+                    >
+                      No
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {hasExperience === "Yes" && (
+                <div className='space-y-2'>
+                  <Label htmlFor='experience'>
+                    Briefly describe your experience *
+                  </Label>
+                  <Textarea
+                    id='experience'
+                    name='experience'
+                    placeholder='Briefly describe your experience'
+                    rows={4}
+                    required={hasExperience === "Yes"}
+                  />
+                </div>
+              )}
+
+              <div className='space-y-2'>
+                <Label htmlFor='languages'>Languages You Speak *</Label>
                 <Input
-                  id='skills'
-                  name='skills'
-                  placeholder='JavaScript, Python, React, etc. (comma-separated)'
+                  id='languages'
+                  name='languages'
+                  placeholder='e.g., English, Thai, Chinese'
                   required
                 />
                 <p className='text-sm text-muted-foreground'>
-                  Enter skills separated by commas
+                  Enter languages separated by commas
                 </p>
               </div>
 
               <div className='space-y-2'>
-                <Label>Languages</Label>
-                {languages.map((lang, index) => (
-                  <div key={index} className='flex gap-2'>
-                    <Input
-                      placeholder='Language name'
-                      value={lang.language}
-                      onChange={(e) =>
-                        updateLanguage(index, "language", e.target.value)
-                      }
-                      className='flex-1'
-                    />
-                    <Select
-                      value={lang.proficiency}
-                      onValueChange={(value: any) =>
-                        updateLanguage(index, "proficiency", value)
-                      }
-                    >
-                      <SelectTrigger className='w-40'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='BASIC'>Basic</SelectItem>
-                        <SelectItem value='INTERMEDIATE'>
-                          Intermediate
-                        </SelectItem>
-                        <SelectItem value='ADVANCED'>Advanced</SelectItem>
-                        <SelectItem value='NATIVE'>Native</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {languages.length > 1 && (
-                      <Button
-                        type='button'
-                        variant='outline'
-                        onClick={() => removeLanguage(index)}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button type='button' variant='outline' onClick={addLanguage}>
-                  + Add Language
-                </Button>
-              </div>
-            </div>
-
-            {/* Documents */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold'>Documents & Links</h3>
-
-              <div className='space-y-2'>
-                <Label htmlFor='resumeUrl'>Resume URL</Label>
-                <Input
-                  id='resumeUrl'
-                  name='resumeUrl'
-                  type='url'
-                  placeholder='https://...'
-                />
-                <p className='text-sm text-muted-foreground'>
-                  Link to your resume (Google Drive, Dropbox, etc.)
-                </p>
+                <Label htmlFor='englishLevel'>English Proficiency *</Label>
+                <Select
+                  value={englishLevel}
+                  onValueChange={setEnglishLevel}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='Select your level' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='Fluent'>Fluent</SelectItem>
+                    <SelectItem value='Intermediate'>Intermediate</SelectItem>
+                    <SelectItem value='Basic'>Basic</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='coverLetterUrl'>Cover Letter URL</Label>
-                <Input
-                  id='coverLetterUrl'
-                  name='coverLetterUrl'
-                  type='url'
-                  placeholder='https://...'
-                />
-              </div>
-
-              <div className='space-y-2'>
-                <Label htmlFor='portfolioUrl'>Portfolio URL</Label>
-                <Input
-                  id='portfolioUrl'
-                  name='portfolioUrl'
-                  type='url'
-                  placeholder='https://...'
-                />
-              </div>
-
-              <div className='space-y-2'>
-                <Label htmlFor='linkedInUrl'>LinkedIn URL</Label>
-                <Input
-                  id='linkedInUrl'
-                  name='linkedInUrl'
-                  type='url'
-                  placeholder='https://linkedin.com/in/...'
-                />
-              </div>
-            </div>
-
-            {/* Additional Notes */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold'>Additional Information</h3>
-
-              <div className='space-y-2'>
-                <Label htmlFor='notes'>Notes</Label>
+                <Label htmlFor='skills'>Other Relevant Skills</Label>
                 <Textarea
-                  id='notes'
-                  name='notes'
-                  placeholder="Any additional information you'd like to share..."
-                  rows={4}
+                  id='skills'
+                  name='skills'
+                  placeholder='e.g., computer skills, certifications, etc.'
+                  rows={3}
                 />
+              </div>
+            </div>
+
+            {/* Section 5: Additional Details */}
+            <div className='space-y-4'>
+              <h3 className='text-lg font-semibold'>Additional Details</h3>
+
+              <div className='space-y-2'>
+                <Label htmlFor='motivation'>
+                  Why do you want to work abroad? *
+                </Label>
+                <Textarea
+                  id='motivation'
+                  name='motivation'
+                  placeholder='Share your goals or motivations'
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <div className='space-y-2'>
+                <Label htmlFor='referralSource'>
+                  How did you hear about us? *
+                </Label>
+                <Select
+                  value={referralSource}
+                  onValueChange={setReferralSource}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='Select an option' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='Facebook'>Facebook</SelectItem>
+                    <SelectItem value='Google'>Google</SelectItem>
+                    <SelectItem value='Tiktok'>Tiktok</SelectItem>
+                    <SelectItem value='Friend'>Friend</SelectItem>
+                    <SelectItem value='Other'>Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Section 6: Consent & Submit */}
+            <div className='space-y-4'>
+              <div className='flex items-center space-x-2'>
+                <Checkbox
+                  id='consent'
+                  checked={consentChecked}
+                  onCheckedChange={(checked: boolean) =>
+                    setConsentChecked(checked === true)
+                  }
+                />
+                <Label
+                  htmlFor='consent'
+                  className='text-sm font-normal cursor-pointer'
+                >
+                  I agree to the terms and privacy policy *
+                </Label>
               </div>
             </div>
 
@@ -473,5 +579,19 @@ export default function ApplyPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ApplyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className='container mx-auto py-12 px-4 max-w-4xl'>
+          <div className='text-center'>Loading application form...</div>
+        </div>
+      }
+    >
+      <ApplyPageContent />
+    </Suspense>
   );
 }

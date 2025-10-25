@@ -82,6 +82,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     search: searchParams.get("search") || undefined,
     sortBy: searchParams.get("sortBy") || "createdAt",
     sortOrder: searchParams.get("sortOrder") || "desc",
+    jobId: searchParams.get("jobId") || undefined,
   };
 
   const validatedParams = applicationQuerySchema.parse(queryParams);
@@ -94,6 +95,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     search: validatedParams.search,
     sortBy: validatedParams.sortBy,
     sortOrder: validatedParams.sortOrder,
+    jobId: validatedParams.jobId,
   });
 
   return paginatedResponse(result.data, result.pagination);

@@ -2,13 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { icons } from "lucide-react";
 
-interface BenefitsProps {
+interface OurServicesProps {
   icon: string;
   title: string;
   description: string;
 }
 
-const benefitList: BenefitsProps[] = [
+const serviceList: OurServicesProps[] = [
   {
     icon: "Blocks",
     title: "Teaching Jobs in Thailand",
@@ -35,13 +35,13 @@ const benefitList: BenefitsProps[] = [
   },
 ];
 
-export const BenefitsSection = () => {
+export const OurServicesSection = () => {
   return (
-    <section id='benefits' className='container py-24 sm:py-32'>
+    <section id='our-services' className='container py-24 sm:py-32'>
       <div className='grid lg:grid-cols-2 place-items-center lg:gap-24'>
         <div>
           <h2 className='text-lg text-primary mb-2 tracking-wider'>
-            What We Offer
+            Our Services
           </h2>
 
           <h2 className='text-3xl md:text-4xl font-bold mb-4'>
@@ -55,7 +55,7 @@ export const BenefitsSection = () => {
         </div>
 
         <div className='grid lg:grid-cols-2 gap-4 w-full'>
-          {benefitList.map(({ icon, title, description }, index) => (
+          {serviceList.map(({ icon, title, description }, index) => (
             <Card
               key={title}
               className='bg-muted/50 dark:bg-card hover:bg-background transition-all delay-75 group/number'
